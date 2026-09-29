@@ -19,8 +19,6 @@
     padding: 0;
     box-sizing: border-box;
     -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
@@ -49,6 +47,20 @@
     pointer-events: none;
   }
 
+  /* ---------- Progress Bar ---------- */
+  #progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    width: 0%;
+    background: linear-gradient(90deg, #7c5cff, #39b7ff, #ff5cb0);
+    z-index: 999;
+    transition: width 0.3s ease, opacity 0.4s ease;
+    box-shadow: 0 0 12px rgba(124, 92, 255, 0.6);
+  }
+  #progress.done { opacity: 0; }
+
   /* ---------- Glass Header ---------- */
   header {
     position: sticky;
@@ -74,7 +86,6 @@
     border-radius: 10px;
     pointer-events: none;
     -webkit-user-drag: none;
-    user-drag: none;
     filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.08));
   }
 
@@ -102,73 +113,157 @@
     padding: 2px;
   }
 
-  @media (min-width: 640px) {
-    .grid { grid-template-columns: repeat(4, 1fr); }
-  }
-  @media (min-width: 1024px) {
-    .grid { grid-template-columns: repeat(6, 1fr); }
-  }
-  @media (min-width: 1440px) {
-    .grid { grid-template-columns: repeat(8, 1fr); }
-  }
+  @media (min-width: 640px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+  @media (min-width: 1024px) { .grid { grid-template-columns: repeat(6, 1fr); } }
+  @media (min-width: 1440px) { .grid { grid-template-columns: repeat(8, 1fr); } }
 
   .tile {
     position: relative;
     aspect-ratio: 1 / 1;
     overflow: hidden;
-    background: transparent;
+    background: #f4f4f8;
     cursor: pointer;
+    border-radius: 4px;
+    contain: layout paint style;
+    transition: transform 0.25s ease;
+  }
+
+  /* Skeleton shimmer */
+  .tile::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, #f0f0f5 30%, #fafaff 50%, #f0f0f5 70%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite linear;
+    z-index: 1;
+    transition: opacity 0.4s ease;
+  }
+  .tile.loaded::before { opacity: 0; }
+
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
   }
 
   .tile img {
+    position: relative;
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
     pointer-events: none;
     -webkit-user-drag: none;
-    user-drag: none;
     opacity: 0;
-    transform: translateY(12px) scale(0.98);
-    animation: fadeUp 0.5s ease forwards;
-    transition: transform 0.35s ease;
+    transform: scale(1.04);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    z-index: 2;
+    will-change: opacity, transform;
   }
 
-  @keyframes fadeUp {
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-
-  .tile::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: rgba(255, 255, 255, 0.15);
-    opacity: 0;
-    transition: opacity 0.25s ease, backdrop-filter 0.25s ease;
-    pointer-events: none;
+  .tile.loaded img {
+    opacity: 1;
+    transform: scale(1);
   }
 
   @media (hover: hover) {
-    .tile:hover::after {
-      opacity: 1;
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
-    }
-    .tile:hover img {
-      transform: scale(1.06);
-    }
+    .tile:hover img { transform: scale(1.06); }
+    .tile:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.10); z-index: 3; }
   }
 
+  .tile:active img { transform: scale(0.98); }
+
   .spacer { height: 40px; }
+
+  /* ---------- Lightbox ---------- */
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 10, 15, 0.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    touch-action: none;
+  }
+  .lightbox.open { opacity: 1; visibility: visible; }
+
+  .lightbox img {
+    max-width: 92vw;
+    max-height: 82vh;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    transform: scale(0.9);
+    transition: transform 0.35s cubic-bezier(.2,.8,.2,1);
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  .lightbox.open img { transform: scale(1); }
+
+  .lb-close,
+  .lb-prev,
+  .lb-next {
+    position: absolute;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    line-height: 1;
+    transition: background 0.2s, transform 0.2s;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .lb-close:hover,
+  .lb-prev:hover,
+  .lb-next:hover { background: rgba(255,255,255,0.25); }
+  .lb-close:active,
+  .lb-prev:active,
+  .lb-next:active { transform: scale(0.92); }
+
+  .lb-close { top: 20px; right: 20px; }
+  .lb-prev  { left: 20px; top: 50%; transform: translateY(-50%); }
+  .lb-next  { right: 20px; top: 50%; transform: translateY(-50%); }
+  .lb-prev:active { transform: translateY(-50%) scale(0.92); }
+  .lb-next:active { transform: translateY(-50%) scale(0.92); }
+
+  .lb-counter {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.75);
+    font-size: 13px;
+    letter-spacing: 3px;
+    font-weight: 500;
+  }
+
+  @media (max-width: 640px) {
+    .lb-prev, .lb-next { width: 40px; height: 40px; font-size: 18px; }
+    .lb-close { width: 40px; height: 40px; font-size: 18px; }
+    .lb-prev { left: 10px; }
+    .lb-next { right: 10px; }
+  }
 </style>
 </head>
 <body>
 
+<div id="progress"></div>
+
 <header>
-  <img src="1.png" alt="" class="logo-mark" draggable="false" />
+  <img src="1.png" alt="" class="logo-mark" draggable="false" fetchpriority="high" />
   <div class="logo-text">VOID</div>
 </header>
 
@@ -177,36 +272,216 @@
   <div class="spacer"></div>
 </main>
 
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lb-close" id="lbClose" aria-label="Close">✕</button>
+  <button class="lb-prev" id="lbPrev" aria-label="Previous">‹</button>
+  <button class="lb-next" id="lbNext" aria-label="Next">›</button>
+  <img id="lbImg" alt="" draggable="false" />
+  <div class="lb-counter" id="lbCounter"></div>
+</div>
+
 <script>
   /* =========================================================
-     تعداد گیف‌ها. هر بار گیف جدید اضافه کردی += 1 کن.
+     تشخیص خودکار تعداد گیف‌ها — فقط فایل بذار، کد تغییر نمی‌خواد
      ========================================================= */
-  const TOTAL_GIFS = 10;
+  const MAX_CHECK = 500;   // حداکثر تعداد بررسی
+  const MAX_MISS  = 3;     // بعد از ۳ تا فایل پیدا نشده، متوقف شو
+  const BATCH     = 10;    // تعداد درخواست موازی
 
-  const grid = document.getElementById('grid');
+  const grid     = document.getElementById('grid');
+  const progress = document.getElementById('progress');
 
-  // جدیدترین بالا → از بزرگ به کوچک (10, 9, ... 1)
-  for (let i = TOTAL_GIFS; i >= 1; i--) {
-    const tile = document.createElement('div');
-    tile.className = 'tile';
+  const items = [];
+  let loadedCount = 0;
+  let totalGifs   = 0;
 
-    const img = document.createElement('img');
-    img.src = `${i}.gif`;
-    img.alt = '';
-    img.draggable = false;
-    img.loading = 'lazy';
-
-    img.onerror = () => tile.remove();
-
-    img.style.animationDelay = `${Math.min(i, 30) * 20}ms`;
-
-    tile.appendChild(img);
-    grid.appendChild(tile);
+  function updateProgress() {
+    if (totalGifs === 0) return;
+    const pct = (loadedCount / totalGifs) * 100;
+    progress.style.width = pct + '%';
+    if (loadedCount >= totalGifs) progress.classList.add('done');
   }
+
+  function checkExists(url) {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload  = () => resolve(true);
+      img.onerror = () => resolve(false);
+      img.src = url + '?v=' + Date.now();
+    });
+  }
+
+  async function detectGifs() {
+    const found = [];
+    let miss = 0;
+    let i = 1;
+
+    while (i <= MAX_CHECK && miss < MAX_MISS) {
+      const batch = [];
+      for (let j = 0; j < BATCH && i + j <= MAX_CHECK; j++) {
+        const n = i + j;
+        batch.push(checkExists(`${n}.gif`).then(ok => ({ n, ok })));
+      }
+      const results = await Promise.all(batch);
+      results.sort((a, b) => a.n - b.n);
+
+      for (const r of results) {
+        if (r.ok) {
+          found.push(r.n);
+          miss = 0;
+        } else {
+          miss++;
+          if (miss >= MAX_MISS) break;
+        }
+      }
+      i += BATCH;
+    }
+    return found;
+  }
+
+  function buildTiles(numbers) {
+    // جدیدترین بالا → از بزرگ به کوچک
+    const sorted = [...numbers].sort((a, b) => b - a);
+    totalGifs = sorted.length;
+
+    sorted.forEach((num, idx) => {
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.dataset.index = num;
+
+      const img = document.createElement('img');
+      img.alt = '';
+      img.draggable = false;
+      img.decoding  = 'async';
+      img.loading   = 'eager';
+      img.fetchPriority = idx < 6 ? 'high' : 'auto';
+
+      tile.appendChild(img);
+      grid.appendChild(tile);
+
+      items.push({ index: num, url: `${num}.gif`, tile, img });
+    });
+
+    preloadAll();
+  }
+
+  function preloadAll() {
+    items.forEach(({ url, tile, img }) => {
+      const loader = new Image();
+      loader.decoding = 'async';
+      loader.src = url;
+
+      const done = () => {
+        img.src = url;
+        const finalize = () => {
+          tile.classList.add('loaded');
+          loadedCount++;
+          updateProgress();
+        };
+        if (img.decode) {
+          img.decode().then(finalize).catch(finalize);
+        } else {
+          img.onload = finalize;
+        }
+      };
+
+      loader.onload = done;
+      loader.onerror = () => {
+        tile.remove();
+        loadedCount++;
+        updateProgress();
+      };
+    });
+  }
+
+  // اجرای اصلی
+  (async () => {
+    const found = await detectGifs();
+    if (found.length === 0) return;
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(() => buildTiles(found), { timeout: 200 });
+    } else {
+      setTimeout(() => buildTiles(found), 50);
+    }
+  })();
+
+  /* ---------- Lightbox ---------- */
+  const lightbox  = document.getElementById('lightbox');
+  const lbImg     = document.getElementById('lbImg');
+  const lbClose   = document.getElementById('lbClose');
+  const lbPrev    = document.getElementById('lbPrev');
+  const lbNext    = document.getElementById('lbNext');
+  const lbCounter = document.getElementById('lbCounter');
+
+  let currentIdx = 0;
+
+  function openLightbox(idx) {
+    currentIdx = idx;
+    const item = items[currentIdx];
+    if (!item) return;
+    lbImg.src = item.url;
+    lbCounter.textContent = `${currentIdx + 1} / ${items.length}`;
+    lightbox.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    lightbox.classList.remove('open');
+    document.body.style.overflow = '';
+    setTimeout(() => { lbImg.src = ''; }, 300);
+  }
+
+  function showNext(dir) {
+    currentIdx = (currentIdx + dir + items.length) % items.length;
+    const item = items[currentIdx];
+    lbImg.src = item.url;
+    lbCounter.textContent = `${currentIdx + 1} / ${items.length}`;
+  }
+
+  grid.addEventListener('click', (e) => {
+    const tile = e.target.closest('.tile');
+    if (!tile) return;
+    const idx = items.findIndex(it => it.tile === tile);
+    if (idx >= 0) openLightbox(idx);
+  });
+
+  lbClose.addEventListener('click', closeLightbox);
+  lbPrev.addEventListener('click', (e) => { e.stopPropagation(); showNext(-1); });
+  lbNext.addEventListener('click', (e) => { e.stopPropagation(); showNext(1); });
+
+  lightbox.addEventListener('click', (e) => {
+    if (e.target === lightbox) closeLightbox();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!lightbox.classList.contains('open')) return;
+    if (e.key === 'Escape')     closeLightbox();
+    if (e.key === 'ArrowRight') showNext(1);
+    if (e.key === 'ArrowLeft')  showNext(-1);
+  });
+
+  /* ---------- Swipe در Lightbox ---------- */
+  let touchStartX = 0, touchStartY = 0, swiping = false;
+  lightbox.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    swiping = true;
+  }, { passive: true });
+
+  lightbox.addEventListener('touchend', (e) => {
+    if (!swiping) return;
+    swiping = false;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+      showNext(dx < 0 ? 1 : -1);
+    }
+  }, { passive: true });
 
   /* ---------- محافظت‌ها ---------- */
   document.addEventListener('contextmenu', e => e.preventDefault());
-  document.addEventListener('dragstart', e => e.preventDefault());
+  document.addEventListener('dragstart',   e => e.preventDefault());
   document.addEventListener('selectstart', e => e.preventDefault());
 
   document.addEventListener('wheel', e => {
@@ -214,32 +489,25 @@
   }, { passive: false });
 
   document.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '0'].includes(e.key)) {
-      e.preventDefault();
-    }
+    if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '0'].includes(e.key)) e.preventDefault();
     if (
       e.key === 'F12' ||
       ((e.ctrlKey || e.metaKey) && e.shiftKey && ['I','J','C'].includes(e.key.toUpperCase())) ||
       ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u')
-    ) {
-      e.preventDefault();
-    }
+    ) e.preventDefault();
   });
 
   document.addEventListener('touchstart', e => {
     if (e.touches.length > 1) e.preventDefault();
   }, { passive: false });
-
   document.addEventListener('touchmove', e => {
     if (e.touches.length > 1) e.preventDefault();
   }, { passive: false });
 
   let lastTouch = 0;
-  document.addEventListener('touchend', e => {
-    const now = Date.now();
-    if (now - lastTouch < 300) e.preventDefault();
-    lastTouch = now;
-  }, { passive: false });
+  document.addEventListener('touchend', () => {
+    lastTouch = Date.now();
+  }, { passive: true });
 </script>
 
 </body>
